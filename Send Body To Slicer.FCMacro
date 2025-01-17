@@ -1,0 +1,59 @@
+# -*- coding: utf-8 -*-
+
+#Send Body To Slicer
+#2025 Gabriel A. Zorrilla - gabriel@zorrilla.me // @GabrielZorrilla
+
+import FreeCAD,math,Mesh,os,Part, PartGui
+import MeshPartGui, FreeCADGui, MeshPart, subprocess
+
+import PySide
+from PySide import QtGui                                             
+mw=Gui.getMainWindow()                                               
+try:                                                                 
+    c=mw.findChild(QtGui.QPlainTextEdit, "Python console")           
+    c.clear()                                                        
+    c.appendPlainText(">>> ")                                        
+except Exception:                                                    
+    None     
+
+#----------------------------------------------------
+#CONFIG
+stl_file_path = "/tmp/File to Print.stl"
+slicer_binary = "/opt/OrcaSlicer/OrcaSlicer.AppImage"
+
+#DEFLECTION CONSTANTS
+ANGULAR = 1
+LINEAR=ANGULAR
+print("Angular and linear values: ", ANGULAR, LINEAR)
+#----------------------------------------------------
+
+# Get the active document
+doc = FreeCAD.activeDocument()
+if doc is None:
+    raise Exception("No active document found")
+
+body = Gui.Selection.getSelectionEx()[0].Object
+
+if body is None:
+    raise Exception("No body found in the active document")
+
+mesh_feature = doc.addObject("Mesh::Feature", "Mesh")
+shape = body.Shape
+mesh_feature.Mesh = MeshPart.meshFromShape(
+    Shape=shape, 
+    LinearDeflection=LINEAR, 
+    AngularDeflection=ANGULAR * (math.pi/180), 
+    Relative=True
+)
+
+Mesh.export([mesh_feature], stl_file_path)
+
+if not os.path.isfile(stl_file_path):
+    raise Exception(f"Failed to create STL file at {stl_file_path}")
+
+doc.removeObject(mesh_feature.Name)
+
+FreeCAD.Console.PrintMessage(f"File exported to {stl_file_path}\n")
+
+subprocess.Popen([slicer_binary, stl_file_path])
+del doc, mesh_feature, body, shape, stl_file_path
